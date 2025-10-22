@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Pairwise World Clock — Simple Deploy</title>
+<link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" as="style">
+<style>
+  /* Minimal, aesthetic styling — keep in one file for easy copy/paste */
+  :root{ --bg:#f6f8fb; --card:#fff; --muted:#6b7280; --accent:#2563eb; --glass: rgba(15,23,42,0.04); font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color-scheme: light; }
+  html,body{height:100%}
+  body{margin:0;background:linear-gradient(180deg,var(--bg),#eef2f6);padding:20px;display:flex;align-items:flex-start;justify-content:center}
+  .wrap{width:100%;max-width:1100px}
+  header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
+  h1{margin:0;font-size:20px;letter-spacing:-0.2px}
+  .sub{color:var(--muted);font-size:13px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+  .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.06);border:1px solid rgba(2,6,23,0.03)}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
+  .search{display:block;width:100%;padding:10px 12px;border-radius:10px;border:1px solid #e6eef8;font-size:14px;box-sizing:border-box}
+  .suggestions{margin-top:8px;border-radius:8px;overflow:auto;border:1px solid #eef3fb;background:linear-gradient(180deg,#fff,#fbfdff);max-height:260px}
+  .suggestion{padding:10px 12px;border-top:1px solid rgba(9,30,66,0.02);cursor:pointer}
+  .suggestion:first-child{border-top:none}
+  .suggestion:hover{background:var(--glass)}
+  .clockRow{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  .clockBox{flex:1;min-width:240px}
+  .timeLarge{font-size:36px;font-weight:700;letter-spacing:-0.4px}
+  .meta{color:var(--muted);margin-top:6px}
+  .diff{display:inline-block;background:linear-gradient(180deg,#fff,#f8fbff);padding:8px 12px;border-radius:10px;border:1px solid #eef3fb;font-weight:600}
+  .footer{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
+  .controls{display:flex;gap:8px;align-items:center;margin-bottom:10px}
+  .chip{padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #eef3fb;font-size:13px}
+  @media (max-width:820px){ .grid{grid-template-columns:1fr} .timeLarge{font-size:28px} }
+</style>
+</head>
+<body>
+  <div class="wrap" role="application" aria-label="Pairwise world clock">
+    <header>
+      <div>
+        <h1>Pairwise World Clock</h1>
+        <div class="sub">Select source & reference to compare local times. Simple, fast and responsive.</div>
+      </div>
+      <div style="flex:1"></div>
+      <div class="controls">
+        <div class="chip" id="status">Status: Idle</div>
+      </div>
+    </header>
+
+    <main>
+      <div class="grid" aria-hidden="false">
+        <section class="card" aria-labelledby="srcLabel">
+          <label id="srcLabel">Point of Source</label>
+          <input id="srcInput" class="search" type="search" placeholder="Type city, place or country (e.g., Kolkata, New York)" aria-autocomplete="list" />
+          <div id="srcList" class="suggestions" style="display:none" role="listbox" aria-label="Source suggestions"></div>
+          <div id="srcInfo" style="margin-top:10px"></div>
+        </section>
+
+        <section class="card" aria-labelledby="refLabel">
+          <label id="refLabel">Point of Reference</label>
+          <input id="refInput" class="search" type="search" placeholder="Type city, place or country (e.g., London, Tokyo)" aria-autocomplete="list" />
+          <div id="refList" class="suggestions" style="display:none" role="listbox" aria-label="Reference suggestions"></div>
+          <div id="refInfo" style="margin-top:10px"></div>
+        </section>
+      </div>
+
+      <section class="card" aria-live="polite">
+        <div class="clockRow">
+          <div class="clockBox">
+            <div class="meta">Source</div>
+            <div id="srcTime" class="timeLarge">—:—:—</div>
+            <div id="srcDate" class="meta"></div>
+            <div id="srcTZ" class="meta"></div>
+          </div>
+
+          <div style="width:1px;background:#eef3fb;height:72px;border-radius:2px"></div>
+
+          <div class="clockBox">
+            <div class="meta">Reference</div>
+            <div id="refTime" class="timeLarge">—:—:—</div>
+            <div id="refDate" class="meta"></div>
+            <div id="refTZ" class="meta"></div>
+          </div>
+
+          <div style="width:1px;background:transparent;height:72px"></div>
+
+          <div style="min-width:220px;align-self:center">
+            <div class="meta">Difference</div>
+            <div style="margin-top:6px"><span id="timeDiff" class="diff">—</span></div>
+          </div>
+        </div>
+      </section>
+
+      <div class="footer">Data: GeoNames (place search + timezone). Quick deploy steps below.</div>
+    </main>
+  </div>
+
+<script>
+/* =========================
+   QUICK SETUP: Replace GEONAMES_USERNAME with your username.
+   Signup: https://www.geonames.org/login
+   ========================= */
+const GEONAMES_USERNAME = 'YOUR_GEONAMES_USERNAME'; // <-- REPLACE ME
+
+if(!GEONAMES_USERNAME || GEONAMES_USERNAME === 'YOUR_GEONAMES_USERNAME') {
+  document.getElementById('status').textContent = 'Status: Replace GeoNames username in file';
+}
+
+/* ---------- small utilities ---------- */
+const $ = id => document.getElementById(id);
+const setStatus = s => { const el=$('status'); el.textContent = 'Status: ' + s; };
+const debounce = (fn, wait=220) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; };
+
+/* ---------- DOM ---------- */
+const srcInput = $('srcInput'), refInput = $('refInput');
+const srcList = $('srcList'), refList = $('refList');
+const srcInfo = $('srcInfo'), refInfo = $('refInfo');
+
+const srcTime = $('srcTime'), refTime = $('refTime'),
+      srcDate = $('srcDate'), refDate = $('refDate'),
+      srcTZ = $('srcTZ'), refTZ = $('refTZ'),
+      timeDiff = $('timeDiff');
+
+let srcPlace = null, refPlace = null;
+
+/* ---------- GeoNames helpers ---------- */
+const GEONAMES_SEARCH = 'https://secure.geonames.org/searchJSON';
+const GEONAMES_TZ = 'https://secure.geonames.org/timezoneJSON';
+
+// Search GeoNames for places (city, place)
+async function geonamesSearch(q){
+  if(!q || q.length < 2) return [];
+  const url = `${GEONAMES_SEARCH}?q=${encodeURIComponent(q)}&maxRows=12&username=${encodeURIComponent(GEONAMES_USERNAME)}&style=full&lang=en&featureClass=P`;
+  const res = await fetch(url);
+  if(!res.ok){ throw new Error('GeoNames search failed'); }
+  const j = await res.json();
+  return j.geonames || [];
+}
+
+// Resolve timezone by lat/lng
+async function geonamesTimezone(lat, lng){
+  const url = `${GEONAMES_TZ}?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&username=${encodeURIComponent(GEONAMES_USERNAME)}`;
+  const res = await fetch(url);
+  if(!res.ok){ throw new Error('GeoNames timezone failed'); }
+  return res.json();
+}
+
+/* ---------- UI helpers ---------- */
+function mkSuggestionNode(place){
+  const d = document.createElement('div');
+  d.className = 'suggestion';
+  d.setAttribute('role','option');
+  d.textContent = `${place.name}${place.adminName1? ', ' + place.adminName1 : ''}${place.countryName? ', ' + place.countryName : ''}`;
+  return d;
+}
+
+function showList(node, places, onPick){
+  node.innerHTML = '';
+  if(!places || places.length === 0){ node.style.display = 'none'; return; }
+  places.forEach(p=>{
+    const n = mkSuggestionNode(p);
+    n.addEventListener('click', ()=> { onPick(p); node.style.display='none'; });
+    node.appendChild(n);
+  });
+  node.style.display = 'block';
+}
+
+function renderInfo(targetEl, place){
+  if(!place){ targetEl.innerHTML = ''; return; }
+  targetEl.innerHTML = `<div style="font-weight:600">${place.name}${place.adminName1? ', ' + place.adminName1: ''}${place.countryName? ', ' + place.countryName: ''}</div>
+    <div style="color:var(--muted);margin-top:6px">lat: ${place.lat}, lon: ${place.lng}</div>`;
+}
+
+/* ---------- business logic ---------- */
+async function pickPlace(kind, place){
+  setStatus('Resolving timezone for ' + place.name);
+  try{
+    const tzResp = await geonamesTimezone(place.lat, place.lng);
+    place.tz = tzResp.timezoneId || tzResp.timeZoneId || tzResp.timezone || tzResp.timezoneid || null;
+    place.tzData = tzResp;
+  }catch(e){
+    place.tz = null;
+    place.tzData = null;
+    console.error(e);
+  }
+  if(kind==='src'){ srcPlace = place; renderInfo(srcInfo, place); srcInput.value = place.name; }
+  else { refPlace = place; renderInfo(refInfo, place); refInput.value = place.name; }
+  setStatus('Ready');
+  updateClocks();
+}
+
+/* ---------- autocomplete hooks ---------- */
+const doSrcSearch = debounce(async (q)=>{
+  if(!q || q.length<2){ srcList.style.display='none'; return; }
+  setStatus('Searching...');
+  try{
+    const list = await geonamesSearch(q);
+    showList(srcList, list, p=>pickPlace('src', p));
+  }catch(e){
+    console.error(e);
+    setStatus('Search error');
+  }
+}, 220);
+
+const doRefSearch = debounce(async (q)=>{
+  if(!q || q.length<2){ refList.style.display='none'; return; }
+  setStatus('Searching...');
+  try{
+    const list = await geonamesSearch(q);
+    showList(refList, list, p=>pickPlace('ref', p));
+  }catch(e){
+    console.error(e);
+    setStatus('Search error');
+  }
+}, 220);
+
+srcInput.addEventListener('input', (e)=> doSrcSearch(e.target.value.trim()) );
+refInput.addEventListener('input', (e)=> doRefSearch(e.target.value.trim()) );
+
+/* ---------- time rendering ---------- */
+function formatTimeForTZ(date, tz, hour12=false){
+  try{
+    return new Intl.DateTimeFormat(undefined, {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:hour12,timeZone:tz}).format(date);
+  }catch(e){ return '—:—:—'; }
+}
+function formatDateForTZ(date, tz){
+  try{
+    return new Intl.DateTimeFormat(undefined, {weekday:'short',year:'numeric',month:'short',day:'numeric',timeZone:tz}).format(date);
+  }catch(e){ return ''; }
+}
+function offsetMinutesForTZ(tz, date){
+  // Use toLocaleString hack: convert to string in tz then parse into a Date object.
+  // This gives us local time vs UTC difference.
+  const local = new Date(date.toLocaleString('en-US', {timeZone: tz}));
+  const diffMin = (local.getTime() - date.getTime()) / (60*1000);
+  return Math.round(diffMin);
+}
+
+function updateClocks(){
+  const now = new Date();
+  if(srcPlace && srcPlace.tz){
+    srcTime.textContent = formatTimeForTZ(now, srcPlace.tz, false);
+    srcDate.textContent = formatDateForTZ(now, srcPlace.tz);
+    srcTZ.textContent = srcPlace.tz + (srcPlace.tzData && srcPlace.tzData.gmtOffset !== undefined ? ` — UTC${srcPlace.tzData.gmtOffset >= 0 ? '+' : ''}${srcPlace.tzData.gmtOffset}` : '');
+  } else {
+    srcTime.textContent = '—:—:—'; srcDate.textContent = ''; srcTZ.textContent = '';
+  }
+  if(refPlace && refPlace.tz){
+    refTime.textContent = formatTimeForTZ(now, refPlace.tz, false);
+    refDate.textContent = formatDateForTZ(now, refPlace.tz);
+    refTZ.textContent = refPlace.tz + (refPlace.tzData && refPlace.tzData.gmtOffset !== undefined ? ` — UTC${refPlace.tzData.gmtOffset >= 0 ? '+' : ''}${refPlace.tzData.gmtOffset}` : '');
+  } else {
+    refTime.textContent = '—:—:—'; refDate.textContent = ''; refTZ.textContent = '';
+  }
+
+  if(srcPlace && srcPlace.tz && refPlace && refPlace.tz){
+    try{
+      const sOff = offsetMinutesForTZ(srcPlace.tz, now);
+      const rOff = offsetMinutesForTZ(refPlace.tz, now);
+      const diffMin = rOff - sOff; // ref - src
+      const sign = diffMin >= 0 ? '+' : '-';
+      const abs = Math.abs(diffMin);
+      const hh = Math.floor(abs/60), mm = abs % 60;
+      timeDiff.textContent = `${sign}${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')} (ref − src)`;
+    }catch(e){
+      timeDiff.textContent = '—';
+    }
+  } else {
+    timeDiff.textContent = '—';
+  }
+}
+
+/* ---------- ticking ---------- */
+setInterval(updateClocks, 1000);
+updateClocks();
+
+/* ---------- small local cache (to reduce calls during same session) ---------- */
+const cache = {
+  places: new Map(), // key: q -> results
+  tz: new Map()      // key: lat|lng -> tzResp
+};
+// Override geonamesSearch/geonamesTimezone to use cache
+const _geonamesSearch = geonamesSearch;
+geonamesSearch = async (q) => {
+  const key = q.toLowerCase();
+  if(cache.places.has(key)) return cache.places.get(key);
+  const res = await _geonamesSearch(q);
+  cache.places.set(key, res);
+  return res;
+};
+const _geonamesTimezone = geonamesTimezone;
+geonamesTimezone = async (lat,lng) => {
+  const key = `${lat}|${lng}`;
+  if(cache.tz.has(key)) return cache.tz.get(key);
+  const res = await _geonamesTimezone(lat,lng);
+  cache.tz.set(key,res);
+  return res;
+};
+
+/* ---------- keyboard accessibility: hide lists on ESC ---------- */
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape'){ srcList.style.display='none'; refList.style.display='none'; }
+});
+
+/* ---------- initial sample (optional) ---------- */
+// For a demo experience, prefill two defaults if username provided
+if(GEONAMES_USERNAME && GEONAMES_USERNAME !== 'YOUR_GEONAMES_USERNAME'){
+  // Pre-select Kolkata and London (try-catch safe)
+  (async ()=>{
+    try{
+      const s = await geonamesSearch('Kolkata'); if(s && s[0]) await pickPlace('src', s[0]);
+      const r = await geonamesSearch('London'); if(r && r[0]) await pickPlace('ref', r[0]);
+    }catch(e){ /* ignore */ }
+  })();
+}
+</script>
+</body>
+</html>
