@@ -3,315 +3,478 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Pairwise World Clock — Simple Deploy</title>
-<link rel="preload" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" as="style">
+<title>World Clock — Simple</title>
 <style>
-  /* Minimal, aesthetic styling — keep in one file for easy copy/paste */
-  :root{ --bg:#f6f8fb; --card:#fff; --muted:#6b7280; --accent:#2563eb; --glass: rgba(15,23,42,0.04); font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial; color-scheme: light; }
-  html,body{height:100%}
-  body{margin:0;background:linear-gradient(180deg,var(--bg),#eef2f6);padding:20px;display:flex;align-items:flex-start;justify-content:center}
-  .wrap{width:100%;max-width:1100px}
-  header{display:flex;align-items:center;gap:12px;margin-bottom:12px}
-  h1{margin:0;font-size:20px;letter-spacing:-0.2px}
-  .sub{color:var(--muted);font-size:13px}
-  .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
-  .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 18px rgba(2,6,23,0.06);border:1px solid rgba(2,6,23,0.03)}
-  label{display:block;font-size:13px;color:var(--muted);margin-bottom:8px}
-  .search{display:block;width:100%;padding:10px 12px;border-radius:10px;border:1px solid #e6eef8;font-size:14px;box-sizing:border-box}
-  .suggestions{margin-top:8px;border-radius:8px;overflow:auto;border:1px solid #eef3fb;background:linear-gradient(180deg,#fff,#fbfdff);max-height:260px}
-  .suggestion{padding:10px 12px;border-top:1px solid rgba(9,30,66,0.02);cursor:pointer}
-  .suggestion:first-child{border-top:none}
-  .suggestion:hover{background:var(--glass)}
-  .clockRow{display:flex;gap:18px;align-items:center;flex-wrap:wrap}
-  .clockBox{flex:1;min-width:240px}
-  .timeLarge{font-size:36px;font-weight:700;letter-spacing:-0.4px}
-  .meta{color:var(--muted);margin-top:6px}
-  .diff{display:inline-block;background:linear-gradient(180deg,#fff,#f8fbff);padding:8px 12px;border-radius:10px;border:1px solid #eef3fb;font-weight:600}
-  .footer{font-size:13px;color:var(--muted);margin-top:12px;text-align:center}
-  .controls{display:flex;gap:8px;align-items:center;margin-bottom:10px}
-  .chip{padding:6px 10px;border-radius:999px;background:#fff;border:1px solid #eef3fb;font-size:13px}
-  @media (max-width:820px){ .grid{grid-template-columns:1fr} .timeLarge{font-size:28px} }
+  :root{
+    --bg:#0f1724;
+    --card:#0b1220;
+    --muted:#9aa8bf;
+    --accent:#6ee7b7;
+    --glass: rgba(255,255,255,0.03);
+    --radius:12px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+    color-scheme: dark;
+  }
+  html,body{height:100%;margin:0;background:linear-gradient(180deg,#071021 0%, #0a1724 100%);color:#e6eef6;}
+  .wrap{max-width:1100px;margin:28px auto;padding:20px;}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
+  header h1{font-size:1.25rem;margin:0}
+  header .controls{display:flex;gap:8px;align-items:center}
+  .card{background:var(--card);border-radius:var(--radius);padding:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);backdrop-filter: blur(6px);}
+  .search-row{display:flex;gap:8px;flex-wrap:wrap}
+  input[type="search"], select{background:var(--glass);border:1px solid rgba(255,255,255,0.03);color:inherit;padding:8px 10px;border-radius:8px;min-width:220px}
+  button{background:linear-gradient(90deg,var(--accent),#3dd9b4);border:none;color:#02221a;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:16px}
+  .clock{padding:12px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));display:flex;flex-direction:column;gap:10px;min-height:120px}
+  .clock .top{display:flex;justify-content:space-between;align-items:center}
+  .label{font-weight:700;font-size:0.95rem}
+  .meta{font-size:0.8rem;color:var(--muted)}
+  .time{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;font-size:1.6rem;letter-spacing:0.5px}
+  .small{font-size:0.82rem;color:var(--muted)}
+  .clock .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .analog-wrap{display:flex;justify-content:center;align-items:center;height:80px}
+  svg.analog{width:110px;height:110px}
+  .empty{padding:24px;text-align:center;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent)}
+  footer{margin-top:18px;color:var(--muted);font-size:0.85rem;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  @media (max-width:480px){
+    input[type="search"]{min-width:140px}
+    .time{font-size:1.2rem}
+  }
 </style>
 </head>
 <body>
-  <div class="wrap" role="application" aria-label="Pairwise world clock">
+  <div class="wrap">
     <header>
       <div>
-        <h1>Pairwise World Clock</h1>
-        <div class="sub">Select source & reference to compare local times. Simple, fast and responsive.</div>
+        <h1 class="card" style="display:inline-block;padding:10px 14px">World Clock</h1>
+        <div class="small" style="margin-top:6px">Multiple timezones, DST-aware, embeddable.</div>
       </div>
-      <div style="flex:1"></div>
       <div class="controls">
-        <div class="chip" id="status">Status: Idle</div>
+        <button id="detectBtn" class="ghost card">Detect My Timezone</button>
+        <button id="clearBtn" class="ghost card">Clear All</button>
       </div>
     </header>
 
-    <main>
-      <div class="grid" aria-hidden="false">
-        <section class="card" aria-labelledby="srcLabel">
-          <label id="srcLabel">Point of Source</label>
-          <input id="srcInput" class="search" type="search" placeholder="Type city, place or country (e.g., Kolkata, New York)" aria-autocomplete="list" />
-          <div id="srcList" class="suggestions" style="display:none" role="listbox" aria-label="Source suggestions"></div>
-          <div id="srcInfo" style="margin-top:10px"></div>
-        </section>
-
-        <section class="card" aria-labelledby="refLabel">
-          <label id="refLabel">Point of Reference</label>
-          <input id="refInput" class="search" type="search" placeholder="Type city, place or country (e.g., London, Tokyo)" aria-autocomplete="list" />
-          <div id="refList" class="suggestions" style="display:none" role="listbox" aria-label="Reference suggestions"></div>
-          <div id="refInfo" style="margin-top:10px"></div>
-        </section>
+    <section class="card">
+      <div class="search-row">
+        <input id="tzSearch" type="search" placeholder="Search timezone / city (e.g., 'Kolkata' or 'Europe/London')" aria-label="Search timezones">
+        <select id="tzSelect" aria-label="Select timezone">
+          <!-- options inserted by JS -->
+        </select>
+        <button id="addBtn">Add</button>
+        <button id="addLocalBtn" class="ghost">Add Local Time</button>
       </div>
+      <div class="small" style="margin-top:8px;color:var(--muted)">
+        Tip: Click "Detect My Timezone" to auto-find your browser timezone. Clocks are stored locally in your browser.
+      </div>
+    </section>
 
-      <section class="card" aria-live="polite">
-        <div class="clockRow">
-          <div class="clockBox">
-            <div class="meta">Source</div>
-            <div id="srcTime" class="timeLarge">—:—:—</div>
-            <div id="srcDate" class="meta"></div>
-            <div id="srcTZ" class="meta"></div>
-          </div>
-
-          <div style="width:1px;background:#eef3fb;height:72px;border-radius:2px"></div>
-
-          <div class="clockBox">
-            <div class="meta">Reference</div>
-            <div id="refTime" class="timeLarge">—:—:—</div>
-            <div id="refDate" class="meta"></div>
-            <div id="refTZ" class="meta"></div>
-          </div>
-
-          <div style="width:1px;background:transparent;height:72px"></div>
-
-          <div style="min-width:220px;align-self:center">
-            <div class="meta">Difference</div>
-            <div style="margin-top:6px"><span id="timeDiff" class="diff">—</span></div>
-          </div>
-        </div>
-      </section>
-
-      <div class="footer">Data: GeoNames (place search + timezone). Quick deploy steps below.</div>
+    <main id="clockGrid" class="grid" style="margin-top:12px">
+      <!-- clock tiles -->
     </main>
+
+    <div id="emptyMsg" class="empty card" style="display:none;margin-top:12px">
+      No clocks yet — add a timezone from above. Try "Add Local Time".
+    </div>
+
+    <footer class="card">
+      <div>Made for GitHub Pages — single-file. To embed, use an iframe referencing this page.</div>
+      <div class="small">Want features (alarms, themed skins, CSV import)? I can add them.</div>
+    </footer>
   </div>
 
 <script>
-/* =========================
-   QUICK SETUP: Replace GEONAMES_USERNAME with your username.
-   Signup: https://www.geonames.org/login
-   ========================= */
-const GEONAMES_USERNAME = 'YOUR_GEONAMES_USERNAME'; // <-- REPLACE ME
+/*
+  World Clock single-file app
+  - Uses Intl.DateTimeFormat with timeZone for correct DST handling
+  - Persists selected clocks to localStorage
+*/
+(() => {
+  // Minimal IANA timezone list (expandable). Good to include common hubs.
+  const TIMEZONES = [
+    "UTC",
+    "Europe/London",
+    "Europe/Paris",
+    "Europe/Berlin",
+    "Europe/Moscow",
+    "Asia/Kolkata",
+    "Asia/Dubai",
+    "Asia/Tokyo",
+    "Asia/Shanghai",
+    "Asia/Singapore",
+    "Asia/Hong_Kong",
+    "Asia/Kuala_Lumpur",
+    "Australia/Sydney",
+    "Australia/Melbourne",
+    "America/New_York",
+    "America/Chicago",
+    "America/Denver",
+    "America/Los_Angeles",
+    "America/Anchorage",
+    "America/Sao_Paulo",
+    "America/Mexico_City",
+    "Africa/Johannesburg",
+    "Africa/Cairo",
+    "Pacific/Auckland",
+    "Pacific/Honolulu"
+  ];
 
-if(!GEONAMES_USERNAME || GEONAMES_USERNAME === 'YOUR_GEONAMES_USERNAME') {
-  document.getElementById('status').textContent = 'Status: Replace GeoNames username in file';
-}
+  // DOM
+  const tzSelect = document.getElementById('tzSelect');
+  const tzSearch = document.getElementById('tzSearch');
+  const addBtn = document.getElementById('addBtn');
+  const addLocalBtn = document.getElementById('addLocalBtn');
+  const detectBtn = document.getElementById('detectBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const clockGrid = document.getElementById('clockGrid');
+  const emptyMsg = document.getElementById('emptyMsg');
 
-/* ---------- small utilities ---------- */
-const $ = id => document.getElementById(id);
-const setStatus = s => { const el=$('status'); el.textContent = 'Status: ' + s; };
-const debounce = (fn, wait=220) => { let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; };
+  // storage key
+  const STORAGE_KEY = 'worldclock.clocks.v1';
 
-/* ---------- DOM ---------- */
-const srcInput = $('srcInput'), refInput = $('refInput');
-const srcList = $('srcList'), refList = $('refList');
-const srcInfo = $('srcInfo'), refInfo = $('refInfo');
+  // default initial clocks
+  const DEFAULT_CL = [
+    {timeZone:'UTC', label:'UTC'},
+    {timeZone:'Asia/Kolkata', label:'Kolkata'},
+    {timeZone:'America/New_York', label:'New York'}
+  ];
 
-const srcTime = $('srcTime'), refTime = $('refTime'),
-      srcDate = $('srcDate'), refDate = $('refDate'),
-      srcTZ = $('srcTZ'), refTZ = $('refTZ'),
-      timeDiff = $('timeDiff');
+  // state
+  let clocks = loadClocks();
 
-let srcPlace = null, refPlace = null;
+  // UI populate timezone select
+  function populateSelect(list){
+    tzSelect.innerHTML = '';
+    list.forEach(tz => {
+      const opt = document.createElement('option');
+      opt.value = tz;
+      opt.textContent = tz.replace('_',' ');
+      tzSelect.appendChild(opt);
+    });
+  }
+  populateSelect(TIMEZONES);
 
-/* ---------- GeoNames helpers ---------- */
-const GEONAMES_SEARCH = 'https://secure.geonames.org/searchJSON';
-const GEONAMES_TZ = 'https://secure.geonames.org/timezoneJSON';
-
-// Search GeoNames for places (city, place)
-async function geonamesSearch(q){
-  if(!q || q.length < 2) return [];
-  const url = `${GEONAMES_SEARCH}?q=${encodeURIComponent(q)}&maxRows=12&username=${encodeURIComponent(GEONAMES_USERNAME)}&style=full&lang=en&featureClass=P`;
-  const res = await fetch(url);
-  if(!res.ok){ throw new Error('GeoNames search failed'); }
-  const j = await res.json();
-  return j.geonames || [];
-}
-
-// Resolve timezone by lat/lng
-async function geonamesTimezone(lat, lng){
-  const url = `${GEONAMES_TZ}?lat=${encodeURIComponent(lat)}&lng=${encodeURIComponent(lng)}&username=${encodeURIComponent(GEONAMES_USERNAME)}`;
-  const res = await fetch(url);
-  if(!res.ok){ throw new Error('GeoNames timezone failed'); }
-  return res.json();
-}
-
-/* ---------- UI helpers ---------- */
-function mkSuggestionNode(place){
-  const d = document.createElement('div');
-  d.className = 'suggestion';
-  d.setAttribute('role','option');
-  d.textContent = `${place.name}${place.adminName1? ', ' + place.adminName1 : ''}${place.countryName? ', ' + place.countryName : ''}`;
-  return d;
-}
-
-function showList(node, places, onPick){
-  node.innerHTML = '';
-  if(!places || places.length === 0){ node.style.display = 'none'; return; }
-  places.forEach(p=>{
-    const n = mkSuggestionNode(p);
-    n.addEventListener('click', ()=> { onPick(p); node.style.display='none'; });
-    node.appendChild(n);
+  // search filter
+  tzSearch.addEventListener('input', e => {
+    const q = e.target.value.trim().toLowerCase();
+    const filtered = TIMEZONES.filter(tz => tz.toLowerCase().includes(q) || tz.split('/').some(part => part.toLowerCase().includes(q)));
+    populateSelect(filtered.length ? filtered : TIMEZONES);
   });
-  node.style.display = 'block';
-}
 
-function renderInfo(targetEl, place){
-  if(!place){ targetEl.innerHTML = ''; return; }
-  targetEl.innerHTML = `<div style="font-weight:600">${place.name}${place.adminName1? ', ' + place.adminName1: ''}${place.countryName? ', ' + place.countryName: ''}</div>
-    <div style="color:var(--muted);margin-top:6px">lat: ${place.lat}, lon: ${place.lng}</div>`;
-}
+  // add timezone
+  addBtn.addEventListener('click', () => {
+    const tz = tzSelect.value || tzSearch.value.trim();
+    if(!tz) return alert('Choose or type a timezone (e.g., "Asia/Kolkata" or "Europe/London").');
+    addClock({timeZone: tz, label: prettyLabel(tz), showAnalog: false});
+  });
 
-/* ---------- business logic ---------- */
-async function pickPlace(kind, place){
-  setStatus('Resolving timezone for ' + place.name);
-  try{
-    const tzResp = await geonamesTimezone(place.lat, place.lng);
-    place.tz = tzResp.timezoneId || tzResp.timeZoneId || tzResp.timezone || tzResp.timezoneid || null;
-    place.tzData = tzResp;
-  }catch(e){
-    place.tz = null;
-    place.tzData = null;
-    console.error(e);
-  }
-  if(kind==='src'){ srcPlace = place; renderInfo(srcInfo, place); srcInput.value = place.name; }
-  else { refPlace = place; renderInfo(refInfo, place); refInput.value = place.name; }
-  setStatus('Ready');
-  updateClocks();
-}
+  addLocalBtn.addEventListener('click', () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    addClock({timeZone: tz, label: prettyLabel(tz), showAnalog: false});
+  });
 
-/* ---------- autocomplete hooks ---------- */
-const doSrcSearch = debounce(async (q)=>{
-  if(!q || q.length<2){ srcList.style.display='none'; return; }
-  setStatus('Searching...');
-  try{
-    const list = await geonamesSearch(q);
-    showList(srcList, list, p=>pickPlace('src', p));
-  }catch(e){
-    console.error(e);
-    setStatus('Search error');
-  }
-}, 220);
+  detectBtn.addEventListener('click', () => {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    alert('Detected timezone: ' + tz);
+  });
 
-const doRefSearch = debounce(async (q)=>{
-  if(!q || q.length<2){ refList.style.display='none'; return; }
-  setStatus('Searching...');
-  try{
-    const list = await geonamesSearch(q);
-    showList(refList, list, p=>pickPlace('ref', p));
-  }catch(e){
-    console.error(e);
-    setStatus('Search error');
-  }
-}, 220);
+  clearBtn.addEventListener('click', () => {
+    if(!confirm('Remove all clocks?')) return;
+    clocks = [];
+    saveClocks();
+    render();
+  });
 
-srcInput.addEventListener('input', (e)=> doSrcSearch(e.target.value.trim()) );
-refInput.addEventListener('input', (e)=> doRefSearch(e.target.value.trim()) );
-
-/* ---------- time rendering ---------- */
-function formatTimeForTZ(date, tz, hour12=false){
-  try{
-    return new Intl.DateTimeFormat(undefined, {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:hour12,timeZone:tz}).format(date);
-  }catch(e){ return '—:—:—'; }
-}
-function formatDateForTZ(date, tz){
-  try{
-    return new Intl.DateTimeFormat(undefined, {weekday:'short',year:'numeric',month:'short',day:'numeric',timeZone:tz}).format(date);
-  }catch(e){ return ''; }
-}
-function offsetMinutesForTZ(tz, date){
-  // Use toLocaleString hack: convert to string in tz then parse into a Date object.
-  // This gives us local time vs UTC difference.
-  const local = new Date(date.toLocaleString('en-US', {timeZone: tz}));
-  const diffMin = (local.getTime() - date.getTime()) / (60*1000);
-  return Math.round(diffMin);
-}
-
-function updateClocks(){
-  const now = new Date();
-  if(srcPlace && srcPlace.tz){
-    srcTime.textContent = formatTimeForTZ(now, srcPlace.tz, false);
-    srcDate.textContent = formatDateForTZ(now, srcPlace.tz);
-    srcTZ.textContent = srcPlace.tz + (srcPlace.tzData && srcPlace.tzData.gmtOffset !== undefined ? ` — UTC${srcPlace.tzData.gmtOffset >= 0 ? '+' : ''}${srcPlace.tzData.gmtOffset}` : '');
-  } else {
-    srcTime.textContent = '—:—:—'; srcDate.textContent = ''; srcTZ.textContent = '';
-  }
-  if(refPlace && refPlace.tz){
-    refTime.textContent = formatTimeForTZ(now, refPlace.tz, false);
-    refDate.textContent = formatDateForTZ(now, refPlace.tz);
-    refTZ.textContent = refPlace.tz + (refPlace.tzData && refPlace.tzData.gmtOffset !== undefined ? ` — UTC${refPlace.tzData.gmtOffset >= 0 ? '+' : ''}${refPlace.tzData.gmtOffset}` : '');
-  } else {
-    refTime.textContent = '—:—:—'; refDate.textContent = ''; refTZ.textContent = '';
+  function prettyLabel(tz){
+    // produce nicer label from IANA, e.g., Asia/Kolkata -> Kolkata
+    const parts = tz.split('/');
+    return parts[parts.length-1].replace('_',' ');
   }
 
-  if(srcPlace && srcPlace.tz && refPlace && refPlace.tz){
-    try{
-      const sOff = offsetMinutesForTZ(srcPlace.tz, now);
-      const rOff = offsetMinutesForTZ(refPlace.tz, now);
-      const diffMin = rOff - sOff; // ref - src
-      const sign = diffMin >= 0 ? '+' : '-';
-      const abs = Math.abs(diffMin);
-      const hh = Math.floor(abs/60), mm = abs % 60;
-      timeDiff.textContent = `${sign}${String(hh).padStart(2,'0')}:${String(mm).padStart(2,'0')} (ref − src)`;
-    }catch(e){
-      timeDiff.textContent = '—';
+  function loadClocks(){
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw) return JSON.parse(raw);
+    } catch(e){}
+    // If no saved, return default
+    return DEFAULT_CL.slice();
+  }
+  function saveClocks(){
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(clocks));
+  }
+
+  function addClock(obj){
+    // avoid duplicates by timezone
+    if(clocks.some(c => c.timeZone === obj.timeZone)){
+      // if duplicate, flash that clock
+      const idx = clocks.findIndex(c => c.timeZone === obj.timeZone);
+      flashClock(idx);
+      return;
     }
-  } else {
-    timeDiff.textContent = '—';
+    clocks.push({...obj, id: Date.now()+Math.random()});
+    saveClocks();
+    render();
   }
-}
 
-/* ---------- ticking ---------- */
-setInterval(updateClocks, 1000);
-updateClocks();
+  function removeClock(idx){
+    clocks.splice(idx,1);
+    saveClocks();
+    render();
+  }
 
-/* ---------- small local cache (to reduce calls during same session) ---------- */
-const cache = {
-  places: new Map(), // key: q -> results
-  tz: new Map()      // key: lat|lng -> tzResp
-};
-// Override geonamesSearch/geonamesTimezone to use cache
-const _geonamesSearch = geonamesSearch;
-geonamesSearch = async (q) => {
-  const key = q.toLowerCase();
-  if(cache.places.has(key)) return cache.places.get(key);
-  const res = await _geonamesSearch(q);
-  cache.places.set(key, res);
-  return res;
-};
-const _geonamesTimezone = geonamesTimezone;
-geonamesTimezone = async (lat,lng) => {
-  const key = `${lat}|${lng}`;
-  if(cache.tz.has(key)) return cache.tz.get(key);
-  const res = await _geonamesTimezone(lat,lng);
-  cache.tz.set(key,res);
-  return res;
-};
+  function toggleAnalog(idx){
+    clocks[idx].showAnalog = !clocks[idx].showAnalog;
+    saveClocks();
+    render();
+  }
 
-/* ---------- keyboard accessibility: hide lists on ESC ---------- */
-document.addEventListener('keydown', (e)=>{
-  if(e.key === 'Escape'){ srcList.style.display='none'; refList.style.display='none'; }
-});
+  function flashClock(idx){
+    // small highlight animation
+    const el = clockGrid.children[idx];
+    if(!el) return;
+    el.animate([{boxShadow:'0 0 0 rgba(110,231,183,0.0)'},{boxShadow:'0 12px 30px rgba(110,231,183,0.08)'},{boxShadow:'0 0 0 rgba(110,231,183,0.0)'}],{duration:800});
+  }
 
-/* ---------- initial sample (optional) ---------- */
-// For a demo experience, prefill two defaults if username provided
-if(GEONAMES_USERNAME && GEONAMES_USERNAME !== 'YOUR_GEONAMES_USERNAME'){
-  // Pre-select Kolkata and London (try-catch safe)
-  (async ()=>{
-    try{
-      const s = await geonamesSearch('Kolkata'); if(s && s[0]) await pickPlace('src', s[0]);
-      const r = await geonamesSearch('London'); if(r && r[0]) await pickPlace('ref', r[0]);
-    }catch(e){ /* ignore */ }
-  })();
-}
+  // Build clock tile DOM
+  function buildClockTile(clock, index){
+    const tile = document.createElement('article');
+    tile.className = 'clock card';
+    // top row: label + remove
+    const top = document.createElement('div');
+    top.className = 'top';
+    const lbl = document.createElement('div');
+    lbl.innerHTML = `<div class="label">${escapeHtml(clock.label)}</div><div class="meta">${escapeHtml(clock.timeZone)}</div>`;
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+    // toggle analog
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'ghost';
+    toggleBtn.textContent = clock.showAnalog ? 'Hide Analog' : 'Show Analog';
+    toggleBtn.onclick = () => toggleAnalog(index);
+
+    const removeBtn = document.createElement('button');
+    removeBtn.className = 'ghost';
+    removeBtn.textContent = 'Remove';
+    removeBtn.onclick = () => {
+      if(confirm('Remove ' + clock.label + '?')) removeClock(index);
+    };
+
+    actions.appendChild(toggleBtn);
+    actions.appendChild(removeBtn);
+    top.appendChild(lbl);
+    top.appendChild(actions);
+
+    // time display
+    const timeDiv = document.createElement('div');
+    timeDiv.className = 'time';
+    timeDiv.setAttribute('data-tz', clock.timeZone);
+
+    // date / offset
+    const meta = document.createElement('div');
+    meta.className = 'small';
+    meta.setAttribute('data-meta', clock.timeZone);
+
+    // analog container
+    const analogWrap = document.createElement('div');
+    analogWrap.className = 'analog-wrap';
+    if(clock.showAnalog){
+      const svg = analogSVG();
+      analogWrap.appendChild(svg);
+    }
+
+    tile.appendChild(top);
+    tile.appendChild(timeDiv);
+    tile.appendChild(meta);
+    tile.appendChild(analogWrap);
+
+    return tile;
+  }
+
+  function render(){
+    clockGrid.innerHTML = '';
+    if(clocks.length === 0){
+      emptyMsg.style.display = 'block';
+    } else {
+      emptyMsg.style.display = 'none';
+      clocks.forEach((c, idx) => {
+        clockGrid.appendChild(buildClockTile(c, idx));
+      });
+    }
+    // update immediately
+    updateAll();
+  }
+
+  // update times each second
+  function updateAll(){
+    const now = new Date();
+    const timeEls = clockGrid.querySelectorAll('[data-tz]');
+    timeEls.forEach(el => {
+      const tz = el.getAttribute('data-tz');
+      el.textContent = formatTime(now, tz);
+    });
+    const metaEls = clockGrid.querySelectorAll('[data-meta]');
+    metaEls.forEach(el => {
+      const tz = el.getAttribute('data-meta');
+      el.innerHTML = formatMeta(now, tz);
+    });
+    // update analog hands
+    updateAnalog(now);
+  }
+
+  function formatTime(date, timeZone){
+    try {
+      // Digital time HH:MM:SS + am/pm locale
+      const fmt = new Intl.DateTimeFormat([], {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true, timeZone});
+      return fmt.format(date);
+    } catch(e){
+      return 'Invalid TZ';
+    }
+  }
+
+  function formatMeta(date, timeZone){
+    try {
+      const dfmt = new Intl.DateTimeFormat([], {weekday:'short',year:'numeric',month:'short',day:'2-digit', timeZone});
+      // numeric offset like +05:30
+      const offset = tzOffsetString(date, timeZone);
+      return `${dfmt.format(date)} • UTC${offset}`;
+    } catch(e){
+      return '';
+    }
+  }
+
+  // compute offset of timezone relative to UTC at current date
+  function tzOffsetString(date, timeZone){
+    // use Intl to get parts in UTC and in target timezone, compute difference
+    // This approach is robust: convert to timestamp for the timezone via formatting trick
+    const dtfTz = new Intl.DateTimeFormat('en-US', {
+      hour12:false, timeZone, year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'
+    });
+    const dtfUtc = new Intl.DateTimeFormat('en-US', {
+      hour12:false, timeZone:'UTC', year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'
+    });
+
+    const parseParts = s => {
+      // s format: MM/DD/YYYY, HH:MM:SS
+      const parts = s.match(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/);
+      if(!parts) return null;
+      return {
+        month: +parts[1], day:+parts[2], year:+parts[3],
+        hour:+parts[4], minute:+parts[5], second:+parts[6]
+      };
+    };
+
+    const tzStr = dtfTz.format(date);
+    const utcStr = dtfUtc.format(date);
+    const tzP = parseParts(tzStr), utcP = parseParts(utcStr);
+    if(!tzP || !utcP) return '';
+    // create Date objects in UTC for both representations
+    const tzDate = Date.UTC(tzP.year, tzP.month-1, tzP.day, tzP.hour, tzP.minute, tzP.second);
+    const utcDate = Date.UTC(utcP.year, utcP.month-1, utcP.day, utcP.hour, utcP.minute, utcP.second);
+    const diffMs = tzDate - utcDate;
+    const diffMin = Math.round(diffMs/60000);
+    const sign = diffMin >=0 ? '+' : '-';
+    const absMin = Math.abs(diffMin);
+    const hh = String(Math.floor(absMin/60)).padStart(2,'0');
+    const mm = String(absMin%60).padStart(2,'0');
+    return `${sign}${hh}:${mm}`;
+  }
+
+  // Analog support: draw hands by transforming SVG elements
+  function analogSVG(){
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox','0 0 120 120');
+    svg.classList.add('analog');
+    // circle
+    const circle = document.createElementNS(ns,'circle');
+    circle.setAttribute('cx','60'); circle.setAttribute('cy','60'); circle.setAttribute('r','52');
+    circle.setAttribute('fill','none'); circle.setAttribute('stroke','rgba(255,255,255,0.04)'); circle.setAttribute('stroke-width','2');
+    svg.appendChild(circle);
+    // hour ticks
+    for(let i=0;i<12;i++){
+      const g = document.createElementNS(ns,'rect');
+      g.setAttribute('x','59'); g.setAttribute('y','8'); g.setAttribute('width','2'); g.setAttribute('height','8');
+      g.setAttribute('rx','1'); g.setAttribute('ry','1'); g.setAttribute('fill','rgba(255,255,255,0.06)');
+      g.setAttribute('transform',`rotate(${i*30} 60 60)`);
+      svg.appendChild(g);
+    }
+    // hands group
+    const hourHand = document.createElementNS(ns,'rect');
+    hourHand.setAttribute('x','58');hourHand.setAttribute('y','30');hourHand.setAttribute('width','4');hourHand.setAttribute('height','24');
+    hourHand.setAttribute('rx','2'); hourHand.setAttribute('fill','white'); hourHand.setAttribute('opacity','0.9');
+    hourHand.setAttribute('id','hhand');
+    hourHand.setAttribute('transform','rotate(0 60 60)');
+    svg.appendChild(hourHand);
+
+    const minuteHand = document.createElementNS(ns,'rect');
+    minuteHand.setAttribute('x','59');minuteHand.setAttribute('y','18');minuteHand.setAttribute('width','2');minuteHand.setAttribute('height','36');
+    minuteHand.setAttribute('rx','1'); minuteHand.setAttribute('fill','white'); minuteHand.setAttribute('opacity','0.8');
+    minuteHand.setAttribute('id','mhand');
+    minuteHand.setAttribute('transform','rotate(0 60 60)');
+    svg.appendChild(minuteHand);
+
+    const secondHand = document.createElementNS(ns,'rect');
+    secondHand.setAttribute('x','60');secondHand.setAttribute('y','10');secondHand.setAttribute('width','1');secondHand.setAttribute('height','46');
+    secondHand.setAttribute('fill','white'); secondHand.setAttribute('opacity','0.7');
+    secondHand.setAttribute('id','shand');
+    secondHand.setAttribute('transform','rotate(0 60 60)');
+    svg.appendChild(secondHand);
+
+    // center pin
+    const pin = document.createElementNS(ns,'circle');
+    pin.setAttribute('cx','60'); pin.setAttribute('cy','60'); pin.setAttribute('r','2.8'); pin.setAttribute('fill','white');
+    svg.appendChild(pin);
+
+    return svg;
+  }
+
+  function updateAnalog(now){
+    // iterate clock tiles and update analogs per timezone
+    const tiles = clockGrid.children;
+    for(let i=0;i<tiles.length;i++){
+      const tz = tiles[i].querySelector('[data-tz]')?.getAttribute('data-tz');
+      const svg = tiles[i].querySelector('svg.analog');
+      if(!tz || !svg) continue;
+      // get local time parts for that tz
+      const tf = new Intl.DateTimeFormat('en-US', {timeZone: tz, hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
+      const parts = tf.formatToParts(now);
+      const hour = +parts.find(p=>p.type==='hour').value;
+      const minute = +parts.find(p=>p.type==='minute').value;
+      const second = +parts.find(p=>p.type==='second').value;
+      // compute angles
+      const hourAngle = (hour % 12) * 30 + (minute/60)*30;
+      const minuteAngle = minute * 6 + (second/60)*6;
+      const secondAngle = second * 6;
+      const h = svg.getElementById('hhand');
+      const m = svg.getElementById('mhand');
+      const s = svg.getElementById('shand');
+      if(h) h.setAttribute('transform', `rotate(${hourAngle} 60 60)`);
+      if(m) m.setAttribute('transform', `rotate(${minuteAngle} 60 60)`);
+      if(s) s.setAttribute('transform', `rotate(${secondAngle} 60 60)`);
+    }
+  }
+
+  // helper to escape text
+  function escapeHtml(s){
+    return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  }
+
+  // initial render
+  render();
+
+  // run update every second
+  setInterval(updateAll, 1000);
+
+  // Allow adding timezone on Enter key in search
+  tzSearch.addEventListener('keydown', e => {
+    if(e.key === 'Enter') addBtn.click();
+  });
+
+  // simple drag & drop reorder (optional enhancement)
+  // not implemented now to keep file simple
+
+})();
 </script>
 </body>
 </html>
