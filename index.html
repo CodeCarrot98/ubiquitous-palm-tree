@@ -1,480 +1,345 @@
-<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>World Clock — Simple</title>
-<style>
-  :root{
-    --bg:#0f1724;
-    --card:#0b1220;
-    --muted:#9aa8bf;
-    --accent:#6ee7b7;
-    --glass: rgba(255,255,255,0.03);
-    --radius:12px;
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-    color-scheme: dark;
-  }
-  html,body{height:100%;margin:0;background:linear-gradient(180deg,#071021 0%, #0a1724 100%);color:#333;}
-  .wrap{max-width:1100px;margin:28px auto;padding:20px;}
-  header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
-  header h1{font-size:1.25rem;margin:0}
-  header .controls{display:flex;gap:8px;align-items:center}
-  .card{background:var(--card);border-radius:var(--radius);padding:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6);backdrop-filter: blur(6px);}
-  .search-row{display:flex;gap:8px;flex-wrap:wrap}
-  input[type="search"], select{background:var(--glass);border:1px solid rgba(255,255,255,0.03);color:inherit;padding:8px 10px;border-radius:8px;min-width:220px}
-  button{background:linear-gradient(90deg,var(--accent),#3dd9b4);border:none;color:#02221a;padding:8px 12px;border-radius:10px;font-weight:600;cursor:pointer}
-  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:var(--muted);font-weight:600}
-  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:16px}
-  .clock{padding:12px;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));display:flex;flex-direction:column;gap:10px;min-height:120px}
-  .clock .top{display:flex;justify-content:space-between;align-items:center}
-  .label{font-weight:700;font-size:0.95rem}
-  .meta{font-size:0.8rem;color:var(--muted)}
-  .time{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Roboto Mono", monospace;font-size:1.6rem;letter-spacing:0.5px}
-  .small{font-size:0.82rem;color:var(--muted)}
-  .clock .actions{display:flex;gap:8px;flex-wrap:wrap}
-  .analog-wrap{display:flex;justify-content:center;align-items:center;height:80px}
-  svg.analog{width:110px;height:110px}
-  .empty{padding:24px;text-align:center;border-radius:12px;background:linear-gradient(180deg, rgba(255,255,255,0.01), transparent)}
-  footer{margin-top:18px;color:var(--muted);font-size:0.85rem;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-  @media (max-width:480px){
-    input[type="search"]{min-width:140px}
-    .time{font-size:1.2rem}
-  }
-</style>
-</head>
-<body>
-  <div class="wrap">
-    <header>
-      <div>
-        <h1 class="card" style="display:inline-block;padding:10px 14px">World Clock</h1>
-        <div class="small" style="margin-top:6px">Multiple timezones, DST-aware, embeddable.</div>
-      </div>
-      <div class="controls">
-        <button id="detectBtn" class="ghost card">Detect My Timezone</button>
-        <button id="clearBtn" class="ghost card">Clear All</button>
-      </div>
-    </header>
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, X, Globe, Clock, MapPin } from 'lucide-react';
 
-    <section class="card">
-      <div class="search-row">
-        <input id="tzSearch" type="search" placeholder="Search timezone / city (e.g., 'Kolkata' or 'Europe/London')" aria-label="Search timezones">
-        <select id="tzSelect" aria-label="Select timezone">
-          <!-- options inserted by JS -->
-        </select>
-        <button id="addBtn">Add</button>
-        <button id="addLocalBtn" class="ghost">Add Local Time</button>
-      </div>
-      <div class="small" style="margin-top:8px;color:var(--muted)">
-        Tip: Click "Detect My Timezone" to auto-find your browser timezone. Clocks are stored locally in your browser.
-      </div>
-    </section>
+// Comprehensive timezone database
+const timezoneData = {
+  // North America
+  "New York, USA": "America/New_York",
+  "Los Angeles, USA": "America/Los_Angeles",
+  "Chicago, USA": "America/Chicago",
+  "Toronto, Canada": "America/Toronto",
+  "Vancouver, Canada": "America/Vancouver",
+  "Mexico City, Mexico": "America/Mexico_City",
+  "Miami, USA": "America/New_York",
+  "San Francisco, USA": "America/Los_Angeles",
+  "Boston, USA": "America/New_York",
+  "Seattle, USA": "America/Los_Angeles",
+  "Denver, USA": "America/Denver",
+  "Phoenix, USA": "America/Phoenix",
+  "Dallas, USA": "America/Chicago",
+  "Houston, USA": "America/Chicago",
+  "Montreal, Canada": "America/Toronto",
+  
+  // South America
+  "São Paulo, Brazil": "America/Sao_Paulo",
+  "Buenos Aires, Argentina": "America/Argentina/Buenos_Aires",
+  "Rio de Janeiro, Brazil": "America/Sao_Paulo",
+  "Lima, Peru": "America/Lima",
+  "Bogota, Colombia": "America/Bogota",
+  "Santiago, Chile": "America/Santiago",
+  "Caracas, Venezuela": "America/Caracas",
+  
+  // Europe
+  "London, UK": "Europe/London",
+  "Paris, France": "Europe/Paris",
+  "Berlin, Germany": "Europe/Berlin",
+  "Madrid, Spain": "Europe/Madrid",
+  "Rome, Italy": "Europe/Rome",
+  "Amsterdam, Netherlands": "Europe/Amsterdam",
+  "Brussels, Belgium": "Europe/Brussels",
+  "Vienna, Austria": "Europe/Vienna",
+  "Stockholm, Sweden": "Europe/Stockholm",
+  "Copenhagen, Denmark": "Europe/Copenhagen",
+  "Oslo, Norway": "Europe/Oslo",
+  "Helsinki, Finland": "Europe/Helsinki",
+  "Warsaw, Poland": "Europe/Warsaw",
+  "Prague, Czech Republic": "Europe/Prague",
+  "Budapest, Hungary": "Europe/Budapest",
+  "Athens, Greece": "Europe/Athens",
+  "Lisbon, Portugal": "Europe/Lisbon",
+  "Dublin, Ireland": "Europe/Dublin",
+  "Zurich, Switzerland": "Europe/Zurich",
+  "Moscow, Russia": "Europe/Moscow",
+  
+  // Asia
+  "Tokyo, Japan": "Asia/Tokyo",
+  "Beijing, China": "Asia/Shanghai",
+  "Shanghai, China": "Asia/Shanghai",
+  "Hong Kong": "Asia/Hong_Kong",
+  "Singapore": "Asia/Singapore",
+  "Seoul, South Korea": "Asia/Seoul",
+  "Mumbai, India": "Asia/Kolkata",
+  "Delhi, India": "Asia/Kolkata",
+  "Bangalore, India": "Asia/Kolkata",
+  "Bangkok, Thailand": "Asia/Bangkok",
+  "Jakarta, Indonesia": "Asia/Jakarta",
+  "Manila, Philippines": "Asia/Manila",
+  "Kuala Lumpur, Malaysia": "Asia/Kuala_Lumpur",
+  "Taipei, Taiwan": "Asia/Taipei",
+  "Ho Chi Minh City, Vietnam": "Asia/Ho_Chi_Minh",
+  "Dubai, UAE": "Asia/Dubai",
+  "Tel Aviv, Israel": "Asia/Jerusalem",
+  "Riyadh, Saudi Arabia": "Asia/Riyadh",
+  "Istanbul, Turkey": "Europe/Istanbul",
+  "Karachi, Pakistan": "Asia/Karachi",
+  
+  // Oceania
+  "Sydney, Australia": "Australia/Sydney",
+  "Melbourne, Australia": "Australia/Melbourne",
+  "Brisbane, Australia": "Australia/Brisbane",
+  "Perth, Australia": "Australia/Perth",
+  "Auckland, New Zealand": "Pacific/Auckland",
+  "Wellington, New Zealand": "Pacific/Auckland",
+  
+  // Africa
+  "Cairo, Egypt": "Africa/Cairo",
+  "Lagos, Nigeria": "Africa/Lagos",
+  "Johannesburg, South Africa": "Africa/Johannesburg",
+  "Nairobi, Kenya": "Africa/Nairobi",
+  "Casablanca, Morocco": "Africa/Casablanca",
+  "Accra, Ghana": "Africa/Accra",
+  "Addis Ababa, Ethiopia": "Africa/Addis_Ababa",
+  "Algiers, Algeria": "Africa/Algiers",
+  "Tunis, Tunisia": "Africa/Tunis",
+};
 
-    <main id="clockGrid" class="grid" style="margin-top:12px">
-      <!-- clock tiles -->
-    </main>
+const WorldClock = () => {
+  const [clocks, setClocks] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filteredCities, setFilteredCities] = useState([]);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [currentTime, setCurrentTime] = useState(new Date());
+  const searchRef = useRef(null);
 
-    <div id="emptyMsg" class="empty card" style="display:none;margin-top:12px">
-      No clocks yet — add a timezone from above. Try "Add Local Time".
-    </div>
+  // Initialize with local time
+  useEffect(() => {
+    const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const localCity = localTimezone.split('/').pop().replace(/_/g, ' ');
+    
+    setClocks([{
+      id: Date.now(),
+      city: `${localCity} (Local)`,
+      timezone: localTimezone,
+      isLocal: true
+    }]);
 
-    <footer class="card">
-      <!-- <div>Made for GitHub Pages — single-file. To embed, use an iframe referencing this page.</div>
-      <div class="small">Want features (alarms, themed skins, CSV import)? I can add them.</div> -->
-    </footer>
-  </div>
-
-<script>
-/*
-  World Clock single-file app
-  - Uses Intl.DateTimeFormat with timeZone for correct DST handling
-  - Persists selected clocks to localStorage
-*/
-(() => {
-  // Minimal IANA timezone list (expandable). Good to include common hubs.
-  const TIMEZONES = [
-    "UTC",
-    "Europe/London",
-    "Europe/Paris",
-    "Europe/Berlin",
-    "Europe/Moscow",
-    "Asia/Kolkata",
-    "Asia/Dubai",
-    "Asia/Tokyo",
-    "Asia/Shanghai",
-    "Asia/Singapore",
-    "Asia/Hong_Kong",
-    "Asia/Kuala_Lumpur",
-    "Australia/Sydney",
-    "Australia/Melbourne",
-    "America/New_York",
-    "America/Chicago",
-    "America/Denver",
-    "America/Los_Angeles",
-    "America/Anchorage",
-    "America/Sao_Paulo",
-    "America/Mexico_City",
-    "Africa/Johannesburg",
-    "Africa/Cairo",
-    "Pacific/Auckland",
-    "Pacific/Honolulu"
-  ];
-
-  // DOM
-  const tzSelect = document.getElementById('tzSelect');
-  const tzSearch = document.getElementById('tzSearch');
-  const addBtn = document.getElementById('addBtn');
-  const addLocalBtn = document.getElementById('addLocalBtn');
-  const detectBtn = document.getElementById('detectBtn');
-  const clearBtn = document.getElementById('clearBtn');
-  const clockGrid = document.getElementById('clockGrid');
-  const emptyMsg = document.getElementById('emptyMsg');
-
-  // storage key
-  const STORAGE_KEY = 'worldclock.clocks.v1';
-
-  // default initial clocks
-  const DEFAULT_CL = [
-    {timeZone:'UTC', label:'UTC'},
-    {timeZone:'Asia/Kolkata', label:'Kolkata'},
-    {timeZone:'America/New_York', label:'New York'}
-  ];
-
-  // state
-  let clocks = loadClocks();
-
-  // UI populate timezone select
-  function populateSelect(list){
-    tzSelect.innerHTML = '';
-    list.forEach(tz => {
-      const opt = document.createElement('option');
-      opt.value = tz;
-      opt.textContent = tz.replace('_',' ');
-      tzSelect.appendChild(opt);
-    });
-  }
-  populateSelect(TIMEZONES);
-
-  // search filter
-  tzSearch.addEventListener('input', e => {
-    const q = e.target.value.trim().toLowerCase();
-    const filtered = TIMEZONES.filter(tz => tz.toLowerCase().includes(q) || tz.split('/').some(part => part.toLowerCase().includes(q)));
-    populateSelect(filtered.length ? filtered : TIMEZONES);
-  });
-
-  // add timezone
-  addBtn.addEventListener('click', () => {
-    const tz = tzSelect.value || tzSearch.value.trim();
-    if(!tz) return alert('Choose or type a timezone (e.g., "Asia/Kolkata" or "Europe/London").');
-    addClock({timeZone: tz, label: prettyLabel(tz), showAnalog: false});
-  });
-
-  addLocalBtn.addEventListener('click', () => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    addClock({timeZone: tz, label: prettyLabel(tz), showAnalog: false});
-  });
-
-  detectBtn.addEventListener('click', () => {
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    alert('Detected timezone: ' + tz);
-  });
-
-  clearBtn.addEventListener('click', () => {
-    if(!confirm('Remove all clocks?')) return;
-    clocks = [];
-    saveClocks();
-    render();
-  });
-
-  function prettyLabel(tz){
-    // produce nicer label from IANA, e.g., Asia/Kolkata -> Kolkata
-    const parts = tz.split('/');
-    return parts[parts.length-1].replace('_',' ');
-  }
-
-  function loadClocks(){
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if(raw) return JSON.parse(raw);
-    } catch(e){}
-    // If no saved, return default
-    return DEFAULT_CL.slice();
-  }
-  function saveClocks(){
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(clocks));
-  }
-
-  function addClock(obj){
-    // avoid duplicates by timezone
-    if(clocks.some(c => c.timeZone === obj.timeZone)){
-      // if duplicate, flash that clock
-      const idx = clocks.findIndex(c => c.timeZone === obj.timeZone);
-      flashClock(idx);
-      return;
+    // Load saved clocks from localStorage
+    const saved = localStorage.getItem('worldClocks');
+    if (saved) {
+      try {
+        const savedClocks = JSON.parse(saved);
+        setClocks(prev => [...prev, ...savedClocks.filter(c => !c.isLocal)]);
+      } catch (e) {
+        console.error('Error loading saved clocks:', e);
+      }
     }
-    clocks.push({...obj, id: Date.now()+Math.random()});
-    saveClocks();
-    render();
-  }
+  }, []);
 
-  function removeClock(idx){
-    clocks.splice(idx,1);
-    saveClocks();
-    render();
-  }
+  // Update time every second
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentTime(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
 
-  function toggleAnalog(idx){
-    clocks[idx].showAnalog = !clocks[idx].showAnalog;
-    saveClocks();
-    render();
-  }
-
-  function flashClock(idx){
-    // small highlight animation
-    const el = clockGrid.children[idx];
-    if(!el) return;
-    el.animate([{boxShadow:'0 0 0 rgba(110,231,183,0.0)'},{boxShadow:'0 12px 30px rgba(110,231,183,0.08)'},{boxShadow:'0 0 0 rgba(110,231,183,0.0)'}],{duration:800});
-  }
-
-  // Build clock tile DOM
-  function buildClockTile(clock, index){
-    const tile = document.createElement('article');
-    tile.className = 'clock card';
-    // top row: label + remove
-    const top = document.createElement('div');
-    top.className = 'top';
-    const lbl = document.createElement('div');
-    lbl.innerHTML = `<div class="label">${escapeHtml(clock.label)}</div><div class="meta">${escapeHtml(clock.timeZone)}</div>`;
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-    // toggle analog
-    const toggleBtn = document.createElement('button');
-    toggleBtn.className = 'ghost';
-    toggleBtn.textContent = clock.showAnalog ? 'Hide Analog' : 'Show Analog';
-    toggleBtn.onclick = () => toggleAnalog(index);
-
-    const removeBtn = document.createElement('button');
-    removeBtn.className = 'ghost';
-    removeBtn.textContent = 'Remove';
-    removeBtn.onclick = () => {
-      if(confirm('Remove ' + clock.label + '?')) removeClock(index);
-    };
-
-    actions.appendChild(toggleBtn);
-    actions.appendChild(removeBtn);
-    top.appendChild(lbl);
-    top.appendChild(actions);
-
-    // time display
-    const timeDiv = document.createElement('div');
-    timeDiv.className = 'time';
-    timeDiv.setAttribute('data-tz', clock.timeZone);
-
-    // date / offset
-    const meta = document.createElement('div');
-    meta.className = 'small';
-    meta.setAttribute('data-meta', clock.timeZone);
-
-    // analog container
-    const analogWrap = document.createElement('div');
-    analogWrap.className = 'analog-wrap';
-    if(clock.showAnalog){
-      const svg = analogSVG();
-      analogWrap.appendChild(svg);
+  // Save clocks to localStorage
+  useEffect(() => {
+    const nonLocalClocks = clocks.filter(c => !c.isLocal);
+    if (nonLocalClocks.length > 0) {
+      localStorage.setItem('worldClocks', JSON.stringify(nonLocalClocks));
     }
+  }, [clocks]);
 
-    tile.appendChild(top);
-    tile.appendChild(timeDiv);
-    tile.appendChild(meta);
-    tile.appendChild(analogWrap);
-
-    return tile;
-  }
-
-  function render(){
-    clockGrid.innerHTML = '';
-    if(clocks.length === 0){
-      emptyMsg.style.display = 'block';
+  // Handle search input
+  useEffect(() => {
+    if (searchQuery.trim()) {
+      const filtered = Object.keys(timezoneData)
+        .filter(city => 
+          city.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        .slice(0, 8);
+      setFilteredCities(filtered);
+      setShowDropdown(filtered.length > 0);
     } else {
-      emptyMsg.style.display = 'none';
-      clocks.forEach((c, idx) => {
-        clockGrid.appendChild(buildClockTile(c, idx));
-      });
+      setFilteredCities([]);
+      setShowDropdown(false);
     }
-    // update immediately
-    updateAll();
-  }
+  }, [searchQuery]);
 
-  // update times each second
-  function updateAll(){
-    const now = new Date();
-    const timeEls = clockGrid.querySelectorAll('[data-tz]');
-    timeEls.forEach(el => {
-      const tz = el.getAttribute('data-tz');
-      el.textContent = formatTime(now, tz);
-    });
-    const metaEls = clockGrid.querySelectorAll('[data-meta]');
-    metaEls.forEach(el => {
-      const tz = el.getAttribute('data-meta');
-      el.innerHTML = formatMeta(now, tz);
-    });
-    // update analog hands
-    updateAnalog(now);
-  }
-
-  function formatTime(date, timeZone){
-    try {
-      // Digital time HH:MM:SS + am/pm locale
-      const fmt = new Intl.DateTimeFormat([], {hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:true, timeZone});
-      return fmt.format(date);
-    } catch(e){
-      return 'Invalid TZ';
-    }
-  }
-
-  function formatMeta(date, timeZone){
-    try {
-      const dfmt = new Intl.DateTimeFormat([], {weekday:'short',year:'numeric',month:'short',day:'2-digit', timeZone});
-      // numeric offset like +05:30
-      const offset = tzOffsetString(date, timeZone);
-      return `${dfmt.format(date)} • UTC${offset}`;
-    } catch(e){
-      return '';
-    }
-  }
-
-  // compute offset of timezone relative to UTC at current date
-  function tzOffsetString(date, timeZone){
-    // use Intl to get parts in UTC and in target timezone, compute difference
-    // This approach is robust: convert to timestamp for the timezone via formatting trick
-    const dtfTz = new Intl.DateTimeFormat('en-US', {
-      hour12:false, timeZone, year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'
-    });
-    const dtfUtc = new Intl.DateTimeFormat('en-US', {
-      hour12:false, timeZone:'UTC', year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit'
-    });
-
-    const parseParts = s => {
-      // s format: MM/DD/YYYY, HH:MM:SS
-      const parts = s.match(/(\d+)\/(\d+)\/(\d+), (\d+):(\d+):(\d+)/);
-      if(!parts) return null;
-      return {
-        month: +parts[1], day:+parts[2], year:+parts[3],
-        hour:+parts[4], minute:+parts[5], second:+parts[6]
-      };
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (searchRef.current && !searchRef.current.contains(e.target)) {
+        setShowDropdown(false);
+      }
     };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
-    const tzStr = dtfTz.format(date);
-    const utcStr = dtfUtc.format(date);
-    const tzP = parseParts(tzStr), utcP = parseParts(utcStr);
-    if(!tzP || !utcP) return '';
-    // create Date objects in UTC for both representations
-    const tzDate = Date.UTC(tzP.year, tzP.month-1, tzP.day, tzP.hour, tzP.minute, tzP.second);
-    const utcDate = Date.UTC(utcP.year, utcP.month-1, utcP.day, utcP.hour, utcP.minute, utcP.second);
-    const diffMs = tzDate - utcDate;
-    const diffMin = Math.round(diffMs/60000);
-    const sign = diffMin >=0 ? '+' : '-';
-    const absMin = Math.abs(diffMin);
-    const hh = String(Math.floor(absMin/60)).padStart(2,'0');
-    const mm = String(absMin%60).padStart(2,'0');
-    return `${sign}${hh}:${mm}`;
-  }
-
-  // Analog support: draw hands by transforming SVG elements
-  function analogSVG(){
-    const ns = 'http://www.w3.org/2000/svg';
-    const svg = document.createElementNS(ns, 'svg');
-    svg.setAttribute('viewBox','0 0 120 120');
-    svg.classList.add('analog');
-    // circle
-    const circle = document.createElementNS(ns,'circle');
-    circle.setAttribute('cx','60'); circle.setAttribute('cy','60'); circle.setAttribute('r','52');
-    circle.setAttribute('fill','none'); circle.setAttribute('stroke','rgba(255,255,255,0.04)'); circle.setAttribute('stroke-width','2');
-    svg.appendChild(circle);
-    // hour ticks
-    for(let i=0;i<12;i++){
-      const g = document.createElementNS(ns,'rect');
-      g.setAttribute('x','59'); g.setAttribute('y','8'); g.setAttribute('width','2'); g.setAttribute('height','8');
-      g.setAttribute('rx','1'); g.setAttribute('ry','1'); g.setAttribute('fill','rgba(255,255,255,0.06)');
-      g.setAttribute('transform',`rotate(${i*30} 60 60)`);
-      svg.appendChild(g);
+  const addClock = (city) => {
+    const timezone = timezoneData[city];
+    const exists = clocks.some(c => c.timezone === timezone);
+    
+    if (!exists) {
+      setClocks([...clocks, {
+        id: Date.now(),
+        city,
+        timezone,
+        isLocal: false
+      }]);
     }
-    // hands group
-    const hourHand = document.createElementNS(ns,'rect');
-    hourHand.setAttribute('x','58');hourHand.setAttribute('y','30');hourHand.setAttribute('width','4');hourHand.setAttribute('height','24');
-    hourHand.setAttribute('rx','2'); hourHand.setAttribute('fill','white'); hourHand.setAttribute('opacity','0.9');
-    hourHand.setAttribute('id','hhand');
-    hourHand.setAttribute('transform','rotate(0 60 60)');
-    svg.appendChild(hourHand);
+    
+    setSearchQuery('');
+    setShowDropdown(false);
+  };
 
-    const minuteHand = document.createElementNS(ns,'rect');
-    minuteHand.setAttribute('x','59');minuteHand.setAttribute('y','18');minuteHand.setAttribute('width','2');minuteHand.setAttribute('height','36');
-    minuteHand.setAttribute('rx','1'); minuteHand.setAttribute('fill','white'); minuteHand.setAttribute('opacity','0.8');
-    minuteHand.setAttribute('id','mhand');
-    minuteHand.setAttribute('transform','rotate(0 60 60)');
-    svg.appendChild(minuteHand);
+  const removeClock = (id) => {
+    setClocks(clocks.filter(c => c.id !== id));
+  };
 
-    const secondHand = document.createElementNS(ns,'rect');
-    secondHand.setAttribute('x','60');secondHand.setAttribute('y','10');secondHand.setAttribute('width','1');secondHand.setAttribute('height','46');
-    secondHand.setAttribute('fill','white'); secondHand.setAttribute('opacity','0.7');
-    secondHand.setAttribute('id','shand');
-    secondHand.setAttribute('transform','rotate(0 60 60)');
-    svg.appendChild(secondHand);
+  const formatTime = (timezone) => {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    }).format(currentTime);
+  };
 
-    // center pin
-    const pin = document.createElementNS(ns,'circle');
-    pin.setAttribute('cx','60'); pin.setAttribute('cy','60'); pin.setAttribute('r','2.8'); pin.setAttribute('fill','white');
-    svg.appendChild(pin);
+  const formatDate = (timezone) => {
+    return new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    }).format(currentTime);
+  };
 
-    return svg;
-  }
+  const getTimeOfDay = (timezone) => {
+    const hour = parseInt(new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: '2-digit',
+      hour12: false
+    }).format(currentTime));
+    
+    if (hour >= 6 && hour < 12) return 'morning';
+    if (hour >= 12 && hour < 18) return 'afternoon';
+    if (hour >= 18 && hour < 22) return 'evening';
+    return 'night';
+  };
 
-  function updateAnalog(now){
-    // iterate clock tiles and update analogs per timezone
-    const tiles = clockGrid.children;
-    for(let i=0;i<tiles.length;i++){
-      const tz = tiles[i].querySelector('[data-tz]')?.getAttribute('data-tz');
-      const svg = tiles[i].querySelector('svg.analog');
-      if(!tz || !svg) continue;
-      // get local time parts for that tz
-      const tf = new Intl.DateTimeFormat('en-US', {timeZone: tz, hour12:false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
-      const parts = tf.formatToParts(now);
-      const hour = +parts.find(p=>p.type==='hour').value;
-      const minute = +parts.find(p=>p.type==='minute').value;
-      const second = +parts.find(p=>p.type==='second').value;
-      // compute angles
-      const hourAngle = (hour % 12) * 30 + (minute/60)*30;
-      const minuteAngle = minute * 6 + (second/60)*6;
-      const secondAngle = second * 6;
-      const h = svg.getElementById('hhand');
-      const m = svg.getElementById('mhand');
-      const s = svg.getElementById('shand');
-      if(h) h.setAttribute('transform', `rotate(${hourAngle} 60 60)`);
-      if(m) m.setAttribute('transform', `rotate(${minuteAngle} 60 60)`);
-      if(s) s.setAttribute('transform', `rotate(${secondAngle} 60 60)`);
-    }
-  }
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 text-white p-4 md:p-8">
+      {/* Header */}
+      <div className="max-w-7xl mx-auto mb-8">
+        <div className="flex items-center justify-center mb-2">
+          <Globe className="w-10 h-10 mr-3 text-blue-400" />
+          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-blue-400 to-purple-500 bg-clip-text text-transparent">
+            World Clock
+          </h1>
+        </div>
+        <p className="text-center text-gray-400 text-sm">Track time across the globe</p>
+      </div>
 
-  // helper to escape text
-  function escapeHtml(s){
-    return (s||'').toString().replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
-  }
+      {/* Search Bar */}
+      <div className="max-w-2xl mx-auto mb-12 relative" ref={searchRef}>
+        <div className="relative">
+          <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search for any city..."
+            className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-12 pr-4 py-4 text-white placeholder-gray-500 focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
+          />
+        </div>
 
-  // initial render
-  render();
+        {/* Autocomplete Dropdown */}
+        {showDropdown && (
+          <div className="absolute w-full mt-2 bg-gray-800 border border-gray-700 rounded-xl shadow-2xl overflow-hidden z-10 max-h-80 overflow-y-auto">
+            {filteredCities.map((city, idx) => (
+              <button
+                key={idx}
+                onClick={() => addClock(city)}
+                className="w-full text-left px-4 py-3 hover:bg-gray-700 transition-colors flex items-center group"
+              >
+                <MapPin className="w-4 h-4 mr-3 text-gray-500 group-hover:text-blue-400 transition-colors" />
+                <span className="text-white">{city}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
-  // run update every second
-  setInterval(updateAll, 1000);
+      {/* Clocks Grid */}
+      {clocks.length === 0 ? (
+        <div className="text-center py-20">
+          <Clock className="w-16 h-16 mx-auto mb-4 text-gray-600" />
+          <p className="text-gray-500 text-lg">No clocks yet. Search for a city to get started!</p>
+        </div>
+      ) : (
+        <div className="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {clocks.map((clock) => {
+            const timeOfDay = getTimeOfDay(clock.timezone);
+            const gradients = {
+              morning: 'from-orange-500/20 to-yellow-500/20',
+              afternoon: 'from-blue-500/20 to-cyan-500/20',
+              evening: 'from-purple-500/20 to-pink-500/20',
+              night: 'from-indigo-500/20 to-blue-900/20'
+            };
 
-  // Allow adding timezone on Enter key in search
-  tzSearch.addEventListener('keydown', e => {
-    if(e.key === 'Enter') addBtn.click();
-  });
+            return (
+              <div
+                key={clock.id}
+                className={`relative bg-gradient-to-br ${gradients[timeOfDay]} backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105 group`}
+              >
+                {/* Remove Button */}
+                {!clock.isLocal && (
+                  <button
+                    onClick={() => removeClock(clock.id)}
+                    className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity bg-red-500/20 hover:bg-red-500/40 rounded-full p-2"
+                  >
+                    <X className="w-4 h-4 text-red-400" />
+                  </button>
+                )}
 
-  // simple drag & drop reorder (optional enhancement)
-  // not implemented now to keep file simple
+                {/* City Name */}
+                <div className="mb-4">
+                  <h3 className="text-xl font-semibold text-white flex items-center">
+                    <MapPin className="w-5 h-5 mr-2 text-blue-400" />
+                    {clock.city}
+                  </h3>
+                </div>
 
-})();
-</script>
-</body>
-</html>
+                {/* Time Display */}
+                <div className="mb-3">
+                  <div className="text-5xl font-bold text-white tracking-tight font-mono">
+                    {formatTime(clock.timezone)}
+                  </div>
+                </div>
+
+                {/* Date Display */}
+                <div className="text-gray-400 text-sm">
+                  {formatDate(clock.timezone)}
+                </div>
+
+                {/* Time of Day Indicator */}
+                <div className="absolute bottom-4 right-4">
+                  <div className={`text-xs px-3 py-1 rounded-full ${
+                    timeOfDay === 'morning' ? 'bg-yellow-500/20 text-yellow-300' :
+                    timeOfDay === 'afternoon' ? 'bg-blue-500/20 text-blue-300' :
+                    timeOfDay === 'evening' ? 'bg-purple-500/20 text-purple-300' :
+                    'bg-indigo-500/20 text-indigo-300'
+                  }`}>
+                    {timeOfDay}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Footer */}
+      <div className="max-w-7xl mx-auto mt-16 text-center text-gray-500 text-sm">
+        <p>Tracking time across {Object.keys(timezoneData).length}+ cities worldwide</p>
+      </div>
+    </div>
+  );
+};
+
+export default WorldClock;
