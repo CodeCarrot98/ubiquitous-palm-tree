@@ -63,6 +63,21 @@
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        .toggle-checkbox:checked {
+            right: 0;
+            border-color: #3b82f6;
+        }
+        
+        .toggle-checkbox:checked + .toggle-label {
+            background-color: #3b82f6;
+        }
+
+        input[type="date"]::-webkit-calendar-picker-indicator,
+        input[type="time"]::-webkit-calendar-picker-indicator {
+            filter: invert(1);
+            cursor: pointer;
+        }
     </style>
 </head>
 <body class="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 text-white">
@@ -77,6 +92,67 @@
                 <h1 class="text-4xl md:text-5xl font-bold gradient-text">World Clock</h1>
             </div>
             <p class="text-center text-gray-400 text-sm">Track time across the globe</p>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="max-w-2xl mx-auto mb-6">
+            <div class="bg-gray-800 border border-gray-700 rounded-xl p-4 flex items-center justify-between">
+                <div class="flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span class="text-white font-medium">Time Mode:</span>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span class="text-gray-400 text-sm" id="liveLabel">Live</span>
+                    <div class="relative">
+                        <input type="checkbox" id="modeToggle" class="sr-only">
+                        <div class="block bg-gray-600 w-14 h-8 rounded-full cursor-pointer" onclick="toggleMode()"></div>
+                        <div class="dot absolute left-1 top-1 bg-white w-6 h-6 rounded-full transition" id="toggleDot"></div>
+                    </div>
+                    <span class="text-blue-400 text-sm font-medium" id="customLabel">Custom</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Mode Panel -->
+        <div id="customPanel" class="hidden max-w-2xl mx-auto mb-6">
+            <div class="bg-gray-800 border border-gray-700 rounded-xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-semibold text-white">Set Custom Time</h3>
+                    <button onclick="clearCustomMode()" class="text-sm text-red-400 hover:text-red-300 flex items-center gap-1">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                        Clear & Reset
+                    </button>
+                </div>
+
+                <!-- Reference Location -->
+                <div class="mb-4">
+                    <label class="block text-gray-400 text-sm mb-2">Reference Location</label>
+                    <select id="referenceCity" onchange="updateCustomTime()" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500">
+                        <option value="">Select a city...</option>
+                    </select>
+                </div>
+
+                <!-- Date and Time Inputs -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-2">Date</label>
+                        <input type="date" id="customDate" onchange="updateCustomTime()" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                    <div>
+                        <label class="block text-gray-400 text-sm mb-2">Time</label>
+                        <input type="time" id="customTime" onchange="updateCustomTime()" class="w-full bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white focus:outline-none focus:border-blue-500">
+                    </div>
+                </div>
+
+                <!-- Info Banner -->
+                <div id="customInfoBanner" class="hidden mt-4 bg-blue-500/10 border border-blue-500/30 rounded-lg p-3">
+                    <p class="text-blue-300 text-sm"></p>
+                </div>
+            </div>
         </div>
 
         <!-- Search Bar -->
@@ -224,6 +300,10 @@
 
         let clocks = [];
         let updateInterval;
+        let isCustomMode = false;
+        let customReferenceTime = null;
+        let referenceCity = null;
+        let referenceTimezone = null;
 
         // Initialize
         function init() {
@@ -248,12 +328,114 @@
                 }
             }
 
+            // Populate reference city dropdown
+            populateReferenceDropdown();
+
             // Start clock updates
             updateClocks();
-            updateInterval = setInterval(updateClocks, 1000);
+            updateInterval = setInterval(() => {
+                if (!isCustomMode) {
+                    updateClocks();
+                }
+            }, 1000);
 
             // Setup search
             setupSearch();
+        }
+
+        function populateReferenceDropdown() {
+            const select = document.getElementById('referenceCity');
+            const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            const localCity = localTimezone.split('/').pop().replace(/_/g, ' ');
+            
+            // Add local as first option
+            const localOption = document.createElement('option');
+            localOption.value = localTimezone;
+            localOption.textContent = `${localCity} (Local)`;
+            select.appendChild(localOption);
+            
+            // Add all cities
+            Object.keys(timezoneData).sort().forEach(city => {
+                const option = document.createElement('option');
+                option.value = timezoneData[city];
+                option.textContent = city;
+                select.appendChild(option);
+            });
+            
+            // Set default to local
+            select.value = localTimezone;
+            referenceTimezone = localTimezone;
+            referenceCity = `${localCity} (Local)`;
+        }
+
+        function toggleMode() {
+            isCustomMode = !isCustomMode;
+            const toggleDot = document.getElementById('toggleDot');
+            const customPanel = document.getElementById('customPanel');
+            const liveLabel = document.getElementById('liveLabel');
+            const customLabel = document.getElementById('customLabel');
+            
+            if (isCustomMode) {
+                toggleDot.style.transform = 'translateX(24px)';
+                toggleDot.parentElement.style.backgroundColor = '#3b82f6';
+                customPanel.classList.remove('hidden');
+                liveLabel.classList.add('text-gray-400');
+                liveLabel.classList.remove('font-medium');
+                customLabel.classList.add('font-medium');
+                
+                // Set current date and time as default
+                const now = new Date();
+                document.getElementById('customDate').value = now.toISOString().split('T')[0];
+                document.getElementById('customTime').value = now.toTimeString().slice(0, 5);
+                
+                updateCustomTime();
+            } else {
+                toggleDot.style.transform = 'translateX(0)';
+                toggleDot.parentElement.style.backgroundColor = '#4b5563';
+                customPanel.classList.add('hidden');
+                liveLabel.classList.remove('text-gray-400');
+                liveLabel.classList.add('font-medium');
+                customLabel.classList.remove('font-medium');
+                
+                customReferenceTime = null;
+                document.getElementById('customInfoBanner').classList.add('hidden');
+                updateClocks();
+            }
+        }
+
+        function updateCustomTime() {
+            const refCity = document.getElementById('referenceCity');
+            const dateInput = document.getElementById('customDate').value;
+            const timeInput = document.getElementById('customTime').value;
+            
+            if (!refCity.value || !dateInput || !timeInput) return;
+            
+            referenceCity = refCity.options[refCity.selectedIndex].text;
+            referenceTimezone = refCity.value;
+            
+            // Create a date object from the inputs
+            const dateTimeString = `${dateInput}T${timeInput}:00`;
+            customReferenceTime = new Date(dateTimeString);
+            
+            // Show info banner
+            const banner = document.getElementById('customInfoBanner');
+            const bannerText = banner.querySelector('p');
+            bannerText.textContent = `Showing times for: ${formatDate(referenceTimezone, customReferenceTime)} at ${formatTime(referenceTimezone, customReferenceTime)} in ${referenceCity}`;
+            banner.classList.remove('hidden');
+            
+            // Update all clocks
+            updateClocks();
+        }
+
+        function clearCustomMode() {
+            isCustomMode = false;
+            toggleMode();
+            document.getElementById('customDate').value = '';
+            document.getElementById('customTime').value = '';
+            
+            // Reset to local timezone
+            const localTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            document.getElementById('referenceCity').value = localTimezone;
         }
 
         function setupSearch() {
@@ -270,7 +452,7 @@
                     
                     if (filtered.length > 0) {
                         dropdown.innerHTML = filtered.map(city => `
-                            <button class="dropdown-item w-full text-left px-4 py-3 flex items-center" onclick="selectCity('${city}')">
+                            <button class="dropdown-item w-full text-left px-4 py-3 flex items-center" onclick="selectCity('${city.replace(/'/g, "\\'")}')">
                                 <svg class="w-4 h-4 mr-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
@@ -331,12 +513,12 @@
             localStorage.setItem('worldClocks', JSON.stringify(nonLocalClocks));
         }
 
-        function getTimeOfDay(timezone) {
+        function getTimeOfDay(timezone, dateTime) {
             const hour = parseInt(new Intl.DateTimeFormat('en-US', {
                 timeZone: timezone,
                 hour: '2-digit',
                 hour12: false
-            }).format(new Date()));
+            }).format(dateTime));
             
             if (hour >= 6 && hour < 12) return 'morning';
             if (hour >= 12 && hour < 18) return 'afternoon';
@@ -344,24 +526,59 @@
             return 'night';
         }
 
-        function formatTime(timezone) {
+        function formatTime(timezone, dateTime = new Date()) {
+            if (isCustomMode && customReferenceTime) {
+                // Calculate time difference from reference timezone
+                const refDate = customReferenceTime;
+                
+                // Get offset in minutes for both timezones at the reference time
+                const refFormatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: referenceTimezone,
+                    timeZoneName: 'short'
+                });
+                
+                const targetFormatter = new Intl.DateTimeFormat('en-US', {
+                    timeZone: timezone,
+                    timeZoneName: 'short'
+                });
+                
+                // Format the reference time in both timezones
+                return new Intl.DateTimeFormat('en-US', {
+                    timeZone: timezone,
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    hour12: true
+                }).format(refDate);
+            }
+            
             return new Intl.DateTimeFormat('en-US', {
                 timeZone: timezone,
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit',
                 hour12: true
-            }).format(new Date());
+            }).format(dateTime);
         }
 
-        function formatDate(timezone) {
+        function formatDate(timezone, dateTime = new Date()) {
+            if (isCustomMode && customReferenceTime) {
+                return new Intl.DateTimeFormat('en-US', {
+                    timeZone: timezone,
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                }).format(customReferenceTime);
+            }
+            
             return new Intl.DateTimeFormat('en-US', {
                 timeZone: timezone,
                 weekday: 'long',
                 year: 'numeric',
                 month: 'long',
                 day: 'numeric'
-            }).format(new Date());
+            }).format(dateTime);
         }
 
         function renderClocks() {
@@ -376,8 +593,10 @@
             
             emptyState.classList.add('hidden');
             
+            const currentTime = isCustomMode && customReferenceTime ? customReferenceTime : new Date();
+            
             grid.innerHTML = clocks.map(clock => {
-                const timeOfDay = getTimeOfDay(clock.timezone);
+                const timeOfDay = getTimeOfDay(clock.timezone, currentTime);
                 const gradients = {
                     morning: 'from-orange-500/20 to-yellow-500/20',
                     afternoon: 'from-blue-500/20 to-cyan-500/20',
@@ -392,8 +611,16 @@
                     night: 'bg-indigo-500/20 text-indigo-300'
                 };
 
+                const isReference = isCustomMode && clock.timezone === referenceTimezone;
+
                 return `
-                    <div class="clock-card fade-in relative bg-gradient-to-br ${gradients[timeOfDay]} backdrop-blur-sm border border-gray-700/50 rounded-2xl p-6 shadow-xl group">
+                    <div class="clock-card fade-in relative bg-gradient-to-br ${gradients[timeOfDay]} backdrop-blur-sm border ${isReference ? 'border-blue-500 border-2' : 'border-gray-700/50'} rounded-2xl p-6 shadow-xl group">
+                        ${isReference ? `
+                            <div class="absolute -top-3 left-4 bg-blue-500 text-white text-xs px-3 py-1 rounded-full font-semibold">
+                                Reference
+                            </div>
+                        ` : ''}
+                        
                         ${!clock.isLocal ? `
                             <button onclick="removeClock(${clock.id})" class="remove-btn absolute top-4 right-4 bg-red-500/20 hover:bg-red-500/40 rounded-full p-2">
                                 <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -414,38 +641,13 @@
                         
                         <div class="mb-3">
                             <div class="clock-time text-5xl font-bold text-white tracking-tight" data-timezone="${clock.timezone}">
-                                ${formatTime(clock.timezone)}
+                                ${formatTime(clock.timezone, currentTime)}
                             </div>
                         </div>
                         
                         <div class="text-gray-400 text-sm" data-date="${clock.timezone}">
-                            ${formatDate(clock.timezone)}
+                            ${formatDate(clock.timezone, currentTime)}
                         </div>
                         
                         <div class="absolute bottom-4 right-4">
-                            <div class="text-xs px-3 py-1 rounded-full ${badges[timeOfDay]}">
-                                ${timeOfDay}
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-        }
-
-        function updateClocks() {
-            document.querySelectorAll('[data-timezone]').forEach(el => {
-                const timezone = el.getAttribute('data-timezone');
-                el.textContent = formatTime(timezone);
-            });
-            
-            document.querySelectorAll('[data-date]').forEach(el => {
-                const timezone = el.getAttribute('data-date');
-                el.textContent = formatDate(timezone);
-            });
-        }
-
-        // Start the app
-        init();
-    </script>
-</body>
-</html>
+                            <div class="text-xs px-3 py
