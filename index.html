@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Institute of Neurodevelopment - Time Tracker Across the Globe</title>
+    <title>World Clock - Track Time Across the Globe</title>
     <meta name="description" content="A modern world clock to track time in any city worldwide">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -650,4 +650,31 @@
                         </div>
                         
                         <div class="absolute bottom-4 right-4">
-                            <div class="text-xs px-3 py
+                            <div class="text-xs px-3 py-1 rounded-full ${badges[timeOfDay]}">
+                                ${timeOfDay}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function updateClocks() {
+            const currentTime = isCustomMode && customReferenceTime ? customReferenceTime : new Date();
+            
+            document.querySelectorAll('[data-timezone]').forEach(el => {
+                const timezone = el.getAttribute('data-timezone');
+                el.textContent = formatTime(timezone, currentTime);
+            });
+            
+            document.querySelectorAll('[data-date]').forEach(el => {
+                const timezone = el.getAttribute('data-date');
+                el.textContent = formatDate(timezone, currentTime);
+            });
+        }
+
+        // Start the app
+        init();
+    </script>
+</body>
+</html>
